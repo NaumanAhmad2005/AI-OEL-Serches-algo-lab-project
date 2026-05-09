@@ -228,9 +228,20 @@ class MazeSolverApp(tk.Tk):
         main = tk.Frame(self, bg=BG)
         main.pack(fill="both", expand=True)
 
-        self._left  = tk.Frame(main, bg=PANEL, width=260)
-        self._left.pack(side="left", fill="y")
-        self._left.pack_propagate(False)
+        self._left_container = tk.Frame(main, bg=PANEL, width=260)
+        self._left_container.pack(side="left", fill="y")
+        self._left_container.pack_propagate(False)
+        
+        self._left_canvas = tk.Canvas(self._left_container, bg=PANEL, highlightthickness=0)
+        self._left_scrollbar = ttk.Scrollbar(self._left_container, orient="vertical", command=self._left_canvas.yview)
+        self._left_canvas.configure(yscrollcommand=self._left_scrollbar.set)
+        
+        self._left_scrollbar.pack(side="right", fill="y")
+        self._left_canvas.pack(side="left", fill="both", expand=True)
+        
+        self._left = tk.Frame(self._left_canvas, bg=PANEL)
+        self._left_canvas.create_window((0, 0), window=self._left, anchor="nw")
+        self._left.bind("<Configure>", lambda e: self._left_canvas.configure(scrollregion=self._left_canvas.bbox("all")))
 
         self._right = tk.Frame(main, bg=BG)
         self._right.pack(side="left", fill="both", expand=True)
@@ -467,6 +478,7 @@ class MazeSolverApp(tk.Tk):
             self._animate_data.append((algo, exp_order, path))
             
         self._animating = True
+        self._draw_maze_grid({}, self._view_algo.get())
         self._animate_loop()
 
     def _animate_loop(self):
@@ -477,9 +489,9 @@ class MazeSolverApp(tk.Tk):
                 limit = min(self._animate_step, len(exp_order))
                 current_explored = set(exp_order[:limit])
                 current_results[algo] = (None, current_explored, 0, 0, 0, [])
-            self._draw_maze_grid(current_results, view)
+            self._draw_maze_grid(current_results, view, is_animation=True)
             
-            step_size = max(1, self._animate_max // 100) # Adjust speed dynamically
+            step_size = max(1, self._animate_max // 50) # Make it slightly faster
             self._animate_step += step_size
             self.after(30, self._animate_loop)
         else:
@@ -497,9 +509,12 @@ class MazeSolverApp(tk.Tk):
         else:
             self._draw_maze_grid({}, self._view_algo.get())
 
-    def _draw_maze_grid(self, results, view_algo):
+    def _draw_maze_grid(self, results, view_algo, is_animation=False):
         canvas = self._maze_canvas
-        canvas.delete("all")
+        if not is_animation:
+            canvas.delete("all")
+            self._grid_rects = {}
+        
         if self._maze is None:
             return
 
@@ -526,17 +541,18 @@ class MazeSolverApp(tk.Tk):
         canvas.config(scrollregion=(0, 0, cw, ch), width=cw, height=ch)
 
         def draw_panel(ox, oy, algo_name, path, explored):
-            # Panel Background
-            create_round_rect(canvas, ox, oy, ox+panel_w-4, oy+panel_h-4, r=16, fill=PANEL, outline=PANEL)
-            
-            # Header
-            color = ALGO_COLORS.get(algo_name, ACCENT)
-            create_round_rect(canvas, ox, oy, ox+panel_w-4, oy+36, r=16, fill=color, outline=color)
-            canvas.create_rectangle(ox, oy+16, ox+panel_w-4, oy+36, fill=color, outline="")
-            
-            canvas.create_text(ox + panel_w//2, oy+18,
-                               text=algo_name, fill="white",
-                               font=("Segoe UI", 11, "bold"))
+            if not is_animation:
+                # Panel Background
+                create_round_rect(canvas, ox, oy, ox+panel_w-4, oy+panel_h-4, r=16, fill=PANEL, outline=PANEL)
+                
+                # Header
+                color = ALGO_COLORS.get(algo_name, ACCENT)
+                create_round_rect(canvas, ox, oy, ox+panel_w-4, oy+36, r=16, fill=color, outline=color)
+                canvas.create_rectangle(ox, oy+16, ox+panel_w-4, oy+36, fill=color, outline="")
+                
+                canvas.create_text(ox + panel_w//2, oy+18,
+                                   text=algo_name, fill="white",
+                                   font=("Segoe UI", 11, "bold"))
 
             gy = oy + 42
             for r in range(maze.rows):
@@ -559,16 +575,25 @@ class MazeSolverApp(tk.Tk):
                     if (r, c) == maze.goal:
                         fill = GOAL_CLR
 
-                    canvas.create_rectangle(x0, y0, x1, y1,
-                                            fill=fill, outline="#2a2e45", width=1)
-                    if (r, c) == maze.start:
-                        canvas.create_text((x0+x1)//2, (y0+y1)//2,
-                                           text="S", fill="white",
-                                           font=("Segoe UI", max(7, cs//3), "bold"))
-                    elif (r, c) == maze.goal:
-                        canvas.create_text((x0+x1)//2, (y0+y1)//2,
-                                           text="G", fill="white",
-                                           font=("Segoe UI", max(7, cs//3), "bold"))
+                    if not is_animation:
+                        x0, y0 = ox + c*cs + 8, gy + r*cs
+                        x1, y1 = x0+cs-1, y0+cs-1
+                        rect_id = canvas.create_rectangle(x0, y0, x1, y1,
+                                                fill=fill, outline="#2a2e45", width=1)
+                        self._grid_rects[(algo_name, r, c)] = rect_id
+                        
+                        if (r, c) == maze.start:
+                            canvas.create_text((x0+x1)//2, (y0+y1)//2,
+                                               text="S", fill="white",
+                                               font=("Segoe UI", max(7, cs//3), "bold"))
+                        elif (r, c) == maze.goal:
+                            canvas.create_text((x0+x1)//2, (y0+y1)//2,
+                                               text="G", fill="white",
+                                               font=("Segoe UI", max(7, cs//3), "bold"))
+                    else:
+                        rect_id = self._grid_rects.get((algo_name, r, c))
+                        if rect_id:
+                            canvas.itemconfig(rect_id, fill=fill)
 
         if not algos_to_show:
             # Just draw the plain maze
