@@ -57,10 +57,12 @@ class RoundedToggle(tk.Canvas):
         self.value = value
         self.select_color = select_color
         self.command = command
-        self.bind("<Button-1>", self.on_click)
+        self.bind("<Button-1>", self.on_press)
+        self.bind("<ButtonRelease-1>", self.on_click)
         self.bind("<Enter>", self.on_hover)
         self.bind("<Leave>", self.on_leave)
         self.hover = False
+        self.pressed = False
         self.variable.trace_add("write", self.update_state)
         self.update_state()
 
@@ -70,9 +72,15 @@ class RoundedToggle(tk.Canvas):
 
     def on_leave(self, e):
         self.hover = False
+        self.pressed = False
+        self.draw()
+
+    def on_press(self, event):
+        self.pressed = True
         self.draw()
 
     def on_click(self, event):
+        self.pressed = False
         self.variable.set(self.value)
         if self.command:
             self.command()
@@ -93,8 +101,10 @@ class RoundedToggle(tk.Canvas):
             bg_color = BG
             fg_color = FG2
         
-        create_round_rect(self, 2, 2, self.winfo_reqwidth()-2, self.winfo_reqheight()-2, r=16, fill=bg_color, outline=CARD)
-        self.create_text(20, self.winfo_reqheight()//2, text=self.text, anchor="w", fill=fg_color, font=("Segoe UI", 10, "bold" if selected else "normal"))
+        offset_y = 2 if self.pressed else 0
+        w, h = self.winfo_reqwidth(), self.winfo_reqheight()
+        create_round_rect(self, 2, 2 + offset_y, w-2, h-2, r=16, fill=bg_color, outline=bg_color)
+        self.create_text(20, h//2 + offset_y, text=self.text, anchor="w", fill=fg_color, font=("Segoe UI", 10, "bold" if selected else "normal"))
 
 class RoundedButton(tk.Canvas):
     def __init__(self, parent, text, bg_color, command=None, width=220, height=40):
@@ -152,8 +162,10 @@ class RoundedButton(tk.Canvas):
         else:
             fill = self.bg_color
             
-        create_round_rect(self, 2, 2, self.winfo_reqwidth()-2, self.winfo_reqheight()-2, r=16, fill=fill, outline=fill)
-        self.create_text(self.winfo_reqwidth()//2, self.winfo_reqheight()//2, text=self.text, fill="white", font=("Segoe UI", 12, "bold"))
+        offset_y = 2 if self.pressed else 0
+        w, h = self.winfo_reqwidth(), self.winfo_reqheight()
+        create_round_rect(self, 2, 2 + offset_y, w-2, h-2, r=16, fill=fill, outline=fill)
+        self.create_text(w//2, h//2 + offset_y, text=self.text, fill="white", font=("Segoe UI", 12, "bold"))
 
 class RoundedFrame(tk.Canvas):
     def __init__(self, parent, bg_color=CARD, radius=16, fit_content=False, **kwargs):
@@ -233,7 +245,7 @@ class MazeSolverApp(tk.Tk):
             rt = RoundedToggle(p, f"  {name}", self._sel_maze, i, ACCENT, command=lambda idx=i: self._load_maze(idx))
             rt.pack(anchor="center", pady=3)
 
-        tk.Frame(p, bg=WALL, height=1).pack(fill="x", padx=12, pady=10)
+        tk.Frame(p, bg=CARD, height=1).pack(fill="x", padx=12, pady=10)
         self._section(p, "ALGORITHM")
 
         for algo in ["All", "BFS", "DFS", "IDS", "A*"]:
@@ -241,7 +253,7 @@ class MazeSolverApp(tk.Tk):
             rt = RoundedToggle(p, f"  {algo}", self._sel_algo, algo, clr)
             rt.pack(anchor="center", pady=3)
 
-        tk.Frame(p, bg=WALL, height=1).pack(fill="x", padx=12, pady=10)
+        tk.Frame(p, bg=CARD, height=1).pack(fill="x", padx=12, pady=10)
 
         self._run_btn = RoundedButton(p, text="▶  RUN", bg_color=ACCENT, command=self._run)
         self._run_btn.pack(anchor="center", pady=4)
@@ -256,12 +268,12 @@ class MazeSolverApp(tk.Tk):
             tk.Label(row, text=f"  {label}", bg=PANEL, fg=FG2,
                      font=("Segoe UI", 9)).pack(side="left")
 
-        tk.Frame(p, bg=WALL, height=1).pack(fill="x", padx=12, pady=10)
+        tk.Frame(p, bg=CARD, height=1).pack(fill="x", padx=12, pady=10)
         self._section(p, "CONTRIBUTORS")
         contribs = ["Nauman Ahmad", "M.Tahir", "Abshar Hussain", "Daniyal Haider"]
         for c in contribs:
-            tk.Label(p, text=f"•  {c}", bg=PANEL, fg=FG,
-                     font=("Segoe UI", 9, "bold")).pack(anchor="w", padx=16, pady=1)
+            tk.Label(p, text=f"•  {c}", bg=PANEL, fg=FG2,
+                     font=("Segoe UI", 9)).pack(anchor="w", padx=20, pady=1)
 
     def _section(self, parent, text):
         tk.Label(parent, text=text, bg=PANEL, fg=FG2,
@@ -271,34 +283,45 @@ class MazeSolverApp(tk.Tk):
     def _build_right(self):
         r = self._right
 
-        # Notebook
-        style = ttk.Style(self)
-        style.theme_use("clam")
-        style.configure("TNotebook", background=BG, borderwidth=0)
-        style.configure("TNotebook.Tab", background=CARD, foreground=FG2,
-                        padding=[14, 6], font=("Segoe UI", 10))
-        style.map("TNotebook.Tab",
-                  background=[("selected", ACCENT)],
-                  foreground=[("selected", "white")])
+        # Custom Tabs
+        self._current_tab = tk.StringVar(value="maze")
+        
+        tab_bar = tk.Frame(r, bg=BG)
+        tab_bar.pack(fill="x", padx=10, pady=(10, 0))
+        
+        RoundedToggle(tab_bar, "  🗺  Maze View  ", self._current_tab, "maze", ACCENT, width=160, command=self._switch_tab).pack(side="left", padx=5)
+        RoundedToggle(tab_bar, "  📊  Comparison  ", self._current_tab, "table", ACCENT, width=160, command=self._switch_tab).pack(side="left", padx=5)
+        RoundedToggle(tab_bar, "  📈  Charts  ", self._current_tab, "chart", ACCENT, width=160, command=self._switch_tab).pack(side="left", padx=5)
 
-        self._nb = ttk.Notebook(r)
-        self._nb.pack(fill="both", expand=True, padx=10, pady=10)
+        self._tab_container = tk.Frame(r, bg=BG)
+        self._tab_container.pack(fill="both", expand=True, padx=0, pady=0)
 
         # Tab 1 – Maze view
-        self._tab_maze = tk.Frame(self._nb, bg=BG)
-        self._nb.add(self._tab_maze, text="  🗺  Maze View  ")
-
+        self._tab_maze = tk.Frame(self._tab_container, bg=BG)
+        
         # Tab 2 – Comparison table
-        self._tab_table = tk.Frame(self._nb, bg=BG)
-        self._nb.add(self._tab_table, text="  📊  Comparison  ")
+        self._tab_table = tk.Frame(self._tab_container, bg=BG)
 
         # Tab 3 – Bar charts
-        self._tab_chart = tk.Frame(self._nb, bg=BG)
-        self._nb.add(self._tab_chart, text="  📈  Charts  ")
+        self._tab_chart = tk.Frame(self._tab_container, bg=BG)
 
         self._build_maze_tab()
         self._build_table_tab()
         self._build_chart_tab()
+        
+        self._switch_tab()
+
+    def _switch_tab(self):
+        for f in [self._tab_maze, self._tab_table, self._tab_chart]:
+            f.pack_forget()
+        
+        sel = self._current_tab.get()
+        if sel == "maze":
+            self._tab_maze.pack(fill="both", expand=True)
+        elif sel == "table":
+            self._tab_table.pack(fill="both", expand=True)
+        elif sel == "chart":
+            self._tab_chart.pack(fill="both", expand=True)
 
     # ── TAB 1: Maze view ─────────────────────────
     def _build_maze_tab(self):
