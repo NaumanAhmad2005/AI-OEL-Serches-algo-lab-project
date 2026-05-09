@@ -107,12 +107,13 @@ class RoundedToggle(tk.Canvas):
         self.create_text(20, h//2 + offset_y, text=self.text, anchor="w", fill=fg_color, font=("Segoe UI", 10, "bold" if selected else "normal"))
 
 class RoundedButton(tk.Canvas):
-    def __init__(self, parent, text, bg_color, command=None, width=220, height=40, font=("Segoe UI", 12, "bold")):
+    def __init__(self, parent, text, bg_color, command=None, width=220, height=40, font=("Segoe UI", 12, "bold"), fg_color="white"):
         super().__init__(parent, width=width, height=height, bg=PANEL, highlightthickness=0)
         self.text = text
         self.bg_color = bg_color
         self.command = command
         self.font = font
+        self.fg_color = fg_color
         self.bind("<Button-1>", self.on_press)
         self.bind("<ButtonRelease-1>", self.on_release)
         self.bind("<Enter>", self.on_hover)
@@ -166,7 +167,7 @@ class RoundedButton(tk.Canvas):
         offset_y = 2 if self.pressed else 0
         w, h = self.winfo_reqwidth(), self.winfo_reqheight()
         create_round_rect(self, 2, 2 + offset_y, w-2, h-2, r=16, fill=fill, outline=fill)
-        self.create_text(w//2, h//2 + offset_y, text=self.text, fill="white", font=self.font)
+        self.create_text(w//2, h//2 + offset_y, text=self.text, fill=self.fg_color, font=self.font)
 
 class RoundedFrame(tk.Canvas):
     def __init__(self, parent, bg_color=CARD, radius=16, fit_content=False, **kwargs):
@@ -270,20 +271,16 @@ class MazeSolverApp(tk.Tk):
                      font=("Segoe UI", 9)).pack(side="left")
 
         tk.Frame(p, bg=CARD, height=1).pack(fill="x", padx=12, pady=6)
-        
-        contrib_box = RoundedFrame(p, bg_color=CARD, radius=16, fit_content=True)
-        contrib_box.pack(fill="x", padx=12, pady=(4, 10))
-        tk.Label(contrib_box.inner, text="CONTRIBUTIONS", bg=CARD, fg=FG2,
-                 font=("Segoe UI", 8, "bold")).pack(pady=(8, 4))
+        self._section(p, "CONTRIBUTIONS")
                  
         contribs = ["Nauman Ahmad", "M.Tahir", "Abshar Hussain", "Daniyal Haider"]
         for c in contribs:
-            dummy = RoundedButton(contrib_box.inner, text=c, bg_color=PANEL, width=190, height=28, font=("Segoe UI", 9, "bold"))
+            dummy = RoundedButton(p, text=f"  {c}", bg_color=BG, width=220, height=36, font=("Segoe UI", 10, "normal"), fg_color=FG2)
             dummy.unbind("<Button-1>")
             dummy.unbind("<ButtonRelease-1>")
             dummy.unbind("<Enter>")
             dummy.unbind("<Leave>")
-            dummy.pack(pady=2)
+            dummy.pack(anchor="center", pady=2)
 
     def _section(self, parent, text):
         tk.Label(parent, text=text, bg=PANEL, fg=FG2,
@@ -517,15 +514,16 @@ class MazeSolverApp(tk.Tk):
         else:
             algos_to_show = []
 
-        cols_count = min(2, max(1, len(algos_to_show)))
-        rows_count = (len(algos_to_show) + 1) // 2 if algos_to_show else 1
-
         panel_w = maze.cols * cs + 20
         panel_h = maze.rows * cs + 44
-        total_w = panel_w * cols_count + 20
-        total_h = panel_h * rows_count + 20
-        canvas.config(scrollregion=(0, 0, total_w, total_h),
-                      width=total_w, height=total_h)
+
+        canvas.update_idletasks()
+        cw = max(canvas.winfo_width(), panel_w * 2 + 40)
+        ch = max(canvas.winfo_height(), panel_h * 2 + 40)
+        q_w = cw // 2
+        q_h = ch // 2
+        
+        canvas.config(scrollregion=(0, 0, cw, ch), width=cw, height=ch)
 
         def draw_panel(ox, oy, algo_name, path, explored):
             # Panel Background
@@ -574,9 +572,10 @@ class MazeSolverApp(tk.Tk):
 
         if not algos_to_show:
             # Just draw the plain maze
-            ox, oy = 10, 10
             panel_w = maze.cols*cs + 20
             panel_h = maze.rows*cs + 50
+            ox = max(10, (q_w - panel_w) // 2)
+            oy = max(10, (q_h - panel_h) // 2)
             
             create_round_rect(canvas, ox, oy, ox+panel_w, oy+panel_h, r=16, fill=PANEL, outline=PANEL)
             create_round_rect(canvas, ox, oy, ox+panel_w, oy+36, r=16, fill=ACCENT, outline=ACCENT)
@@ -609,8 +608,8 @@ class MazeSolverApp(tk.Tk):
             for idx, algo_name in enumerate(algos_to_show):
                 row_i = idx // 2
                 col_i = idx % 2
-                ox = 10 + col_i * panel_w
-                oy = 10 + row_i * panel_h
+                ox = col_i * q_w + max(10, (q_w - panel_w) // 2)
+                oy = row_i * q_h + max(10, (q_h - panel_h) // 2)
                 path_set, explored_set = set(), set()
                 if algo_name in results:
                     path, explored, cost, nodes, elapsed, _ = results[algo_name]
