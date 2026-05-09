@@ -233,11 +233,7 @@ class MazeSolverApp(tk.Tk):
         self._left_container.pack_propagate(False)
         
         self._left_canvas = tk.Canvas(self._left_container, bg=PANEL, highlightthickness=0)
-        self._left_scrollbar = ttk.Scrollbar(self._left_container, orient="vertical", command=self._left_canvas.yview)
-        self._left_canvas.configure(yscrollcommand=self._left_scrollbar.set)
-        
-        # self._left_scrollbar.pack(side="right", fill="y")
-        self._left_canvas.pack(side="left", fill="both", expand=True)
+        self._left_canvas.pack(side="left", fill="both", expand=True, padx=(14, 0))
         
         def _bind_scroll(e):
             self.bind_all("<MouseWheel>", lambda e: self._left_canvas.yview_scroll(-1 * (e.delta // 120), "units"))
@@ -367,15 +363,21 @@ class MazeSolverApp(tk.Tk):
         outer = tk.Frame(t, bg=BG)
         outer.pack(fill="both", expand=True, padx=10, pady=4)
 
-        self._maze_canvas_frame = tk.Frame(outer, bg=BG)
-        self._maze_canvas_frame.pack(fill="both", expand=True)
-
-        self._vsb = tk.Scrollbar(outer, orient="vertical")
-        self._hsb = tk.Scrollbar(outer, orient="horizontal")
-
-        self._maze_canvas = tk.Canvas(self._maze_canvas_frame, bg=BG,
-                                      highlightthickness=0)
-        self._maze_canvas.pack(fill="both", expand=True)
+        self._maze_canvas = tk.Canvas(outer, bg=BG, highlightthickness=0)
+        self._maze_canvas.pack(side="left", fill="both", expand=True)
+        
+        def _bind_maze_scroll(e):
+            self.bind_all("<MouseWheel>", lambda e: self._maze_canvas.yview_scroll(-1 * (e.delta // 120), "units"))
+            self.bind_all("<Button-4>", lambda e: self._maze_canvas.yview_scroll(-1, "units"))
+            self.bind_all("<Button-5>", lambda e: self._maze_canvas.yview_scroll(1, "units"))
+            
+        def _unbind_maze_scroll(e):
+            self.unbind_all("<MouseWheel>")
+            self.unbind_all("<Button-4>")
+            self.unbind_all("<Button-5>")
+            
+        self._maze_canvas.bind("<Enter>", _bind_maze_scroll)
+        self._maze_canvas.bind("<Leave>", _unbind_maze_scroll)
 
     # ── TAB 2: Comparison table ───────────────────
     def _build_table_tab(self):
