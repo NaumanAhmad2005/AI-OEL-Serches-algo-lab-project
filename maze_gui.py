@@ -107,11 +107,12 @@ class RoundedToggle(tk.Canvas):
         self.create_text(20, h//2 + offset_y, text=self.text, anchor="w", fill=fg_color, font=("Segoe UI", 10, "bold" if selected else "normal"))
 
 class RoundedButton(tk.Canvas):
-    def __init__(self, parent, text, bg_color, command=None, width=220, height=40):
+    def __init__(self, parent, text, bg_color, command=None, width=220, height=40, font=("Segoe UI", 12, "bold")):
         super().__init__(parent, width=width, height=height, bg=PANEL, highlightthickness=0)
         self.text = text
         self.bg_color = bg_color
         self.command = command
+        self.font = font
         self.bind("<Button-1>", self.on_press)
         self.bind("<ButtonRelease-1>", self.on_release)
         self.bind("<Enter>", self.on_hover)
@@ -165,7 +166,7 @@ class RoundedButton(tk.Canvas):
         offset_y = 2 if self.pressed else 0
         w, h = self.winfo_reqwidth(), self.winfo_reqheight()
         create_round_rect(self, 2, 2 + offset_y, w-2, h-2, r=16, fill=fill, outline=fill)
-        self.create_text(w//2, h//2 + offset_y, text=self.text, fill="white", font=("Segoe UI", 12, "bold"))
+        self.create_text(w//2, h//2 + offset_y, text=self.text, fill="white", font=self.font)
 
 class RoundedFrame(tk.Canvas):
     def __init__(self, parent, bg_color=CARD, radius=16, fit_content=False, **kwargs):
@@ -269,11 +270,20 @@ class MazeSolverApp(tk.Tk):
                      font=("Segoe UI", 9)).pack(side="left")
 
         tk.Frame(p, bg=CARD, height=1).pack(fill="x", padx=12, pady=6)
-        self._section(p, "CONTRIBUTORS")
+        
+        contrib_box = RoundedFrame(p, bg_color=CARD, radius=16, fit_content=True)
+        contrib_box.pack(fill="x", padx=12, pady=(4, 10))
+        tk.Label(contrib_box.inner, text="CONTRIBUTIONS", bg=CARD, fg=FG2,
+                 font=("Segoe UI", 8, "bold")).pack(pady=(8, 4))
+                 
         contribs = ["Nauman Ahmad", "M.Tahir", "Abshar Hussain", "Daniyal Haider"]
         for c in contribs:
-            tk.Label(p, text=f"•  {c}", bg=PANEL, fg=ACCENT2,
-                     font=("Segoe UI", 9, "bold")).pack(anchor="w", padx=20, pady=0)
+            dummy = RoundedButton(contrib_box.inner, text=c, bg_color=PANEL, width=190, height=28, font=("Segoe UI", 9, "bold"))
+            dummy.unbind("<Button-1>")
+            dummy.unbind("<ButtonRelease-1>")
+            dummy.unbind("<Enter>")
+            dummy.unbind("<Leave>")
+            dummy.pack(pady=2)
 
     def _section(self, parent, text):
         tk.Label(parent, text=text, bg=PANEL, fg=FG2,
