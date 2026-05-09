@@ -96,6 +96,65 @@ class RoundedToggle(tk.Canvas):
         create_round_rect(self, 2, 2, self.winfo_reqwidth()-2, self.winfo_reqheight()-2, r=16, fill=bg_color, outline=CARD)
         self.create_text(20, self.winfo_reqheight()//2, text=self.text, anchor="w", fill=fg_color, font=("Segoe UI", 10, "bold" if selected else "normal"))
 
+class RoundedButton(tk.Canvas):
+    def __init__(self, parent, text, bg_color, command=None, width=220, height=40):
+        super().__init__(parent, width=width, height=height, bg=PANEL, highlightthickness=0)
+        self.text = text
+        self.bg_color = bg_color
+        self.command = command
+        self.bind("<Button-1>", self.on_press)
+        self.bind("<ButtonRelease-1>", self.on_release)
+        self.bind("<Enter>", self.on_hover)
+        self.bind("<Leave>", self.on_leave)
+        self.hover = False
+        self.pressed = False
+        self.draw()
+
+    def on_hover(self, e):
+        self.hover = True
+        self.draw()
+
+    def on_leave(self, e):
+        self.hover = False
+        self.pressed = False
+        self.draw()
+
+    def on_press(self, e):
+        self.pressed = True
+        self.draw()
+
+    def on_release(self, e):
+        if self.pressed:
+            self.pressed = False
+            self.draw()
+            if self.command:
+                self.command()
+
+    def config(self, state=None, text=None):
+        if text is not None:
+            self.text = text
+        if state == "disabled":
+            self.bg_color = CARD
+            self.unbind("<Button-1>")
+            self.unbind("<ButtonRelease-1>")
+        else:
+            self.bg_color = ACCENT
+            self.bind("<Button-1>", self.on_press)
+            self.bind("<ButtonRelease-1>", self.on_release)
+        self.draw()
+
+    def draw(self):
+        self.delete("all")
+        if self.pressed:
+            fill = CARD
+        elif self.hover:
+            fill = ACCENT2
+        else:
+            fill = self.bg_color
+            
+        create_round_rect(self, 2, 2, self.winfo_reqwidth()-2, self.winfo_reqheight()-2, r=16, fill=fill, outline=fill)
+        self.create_text(self.winfo_reqwidth()//2, self.winfo_reqheight()//2, text=self.text, fill="white", font=("Segoe UI", 12, "bold"))
+
 class RoundedFrame(tk.Canvas):
     def __init__(self, parent, bg_color=CARD, radius=16, fit_content=False, **kwargs):
         super().__init__(parent, bg=BG, highlightthickness=0, **kwargs)
@@ -184,12 +243,8 @@ class MazeSolverApp(tk.Tk):
 
         tk.Frame(p, bg=WALL, height=1).pack(fill="x", padx=12, pady=10)
 
-        self._run_btn = tk.Button(p, text="▶  RUN", bg=ACCENT, fg="white",
-                                  font=("Segoe UI", 12, "bold"),
-                                  relief="flat", cursor="hand2",
-                                  activebackground=ACCENT2, activeforeground="white",
-                                  command=self._run)
-        self._run_btn.pack(fill="x", padx=16, pady=4)
+        self._run_btn = RoundedButton(p, text="▶  RUN", bg_color=ACCENT, command=self._run)
+        self._run_btn.pack(anchor="center", pady=4)
 
         self._section(p, "LEGEND")
         for label, color in [("Start (S)", START_CLR), ("Goal (G)", GOAL_CLR),
@@ -200,6 +255,13 @@ class MazeSolverApp(tk.Tk):
             tk.Frame(row, bg=color, width=14, height=14).pack(side="left")
             tk.Label(row, text=f"  {label}", bg=PANEL, fg=FG2,
                      font=("Segoe UI", 9)).pack(side="left")
+
+        tk.Frame(p, bg=WALL, height=1).pack(fill="x", padx=12, pady=10)
+        self._section(p, "CONTRIBUTORS")
+        contribs = ["Nauman Ahmad", "M.Tahir", "Abshar Hussain", "Daniyal Haider"]
+        for c in contribs:
+            tk.Label(p, text=f"•  {c}", bg=PANEL, fg=FG,
+                     font=("Segoe UI", 9, "bold")).pack(anchor="w", padx=16, pady=1)
 
     def _section(self, parent, text):
         tk.Label(parent, text=text, bg=PANEL, fg=FG2,
