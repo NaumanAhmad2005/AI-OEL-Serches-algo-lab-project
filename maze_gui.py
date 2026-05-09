@@ -21,8 +21,8 @@ WARN      = "#ffb300"
 DANGER    = "#ff5252"
 FG        = "#e8eaf6"
 FG2       = "#9e9ec8"
-WALL      = "#3a3f5c"
-OPEN      = "#1e2235"
+WALL      = "#cbd5e1"
+OPEN      = "#0f1117"
 PATH_CLR  = "#00e676"
 EXP_CLR   = "#6c63ff"
 START_CLR = "#ffb300"
@@ -40,6 +40,86 @@ CELL = 36          # pixel size per maze cell (scales down for big grids)
 
 def cell_size(maze):
     return max(12, min(CELL, 480 // max(maze.rows, maze.cols)))
+
+def create_round_rect(canvas, x1, y1, x2, y2, r=10, **kwargs):
+    points = [
+        x1+r, y1, x1+r, y1, x2-r, y1, x2-r, y1, x2, y1, x2, y1+r, x2, y1+r, x2, y2-r, x2, y2-r,
+        x2, y2, x2-r, y2, x2-r, y2, x1+r, y2, x1+r, y2, x1, y2, x1, y2-r, x1, y2-r, x1, y1+r,
+        x1, y1+r, x1, y1
+    ]
+    return canvas.create_polygon(points, smooth=True, **kwargs)
+
+class RoundedToggle(tk.Canvas):
+    def __init__(self, parent, text, variable, value, select_color, command=None, width=220, height=36):
+        super().__init__(parent, width=width, height=height, bg=PANEL, highlightthickness=0)
+        self.text = text
+        self.variable = variable
+        self.value = value
+        self.select_color = select_color
+        self.command = command
+        self.bind("<Button-1>", self.on_click)
+        self.bind("<Enter>", self.on_hover)
+        self.bind("<Leave>", self.on_leave)
+        self.hover = False
+        self.variable.trace_add("write", self.update_state)
+        self.update_state()
+
+    def on_hover(self, e):
+        self.hover = True
+        self.draw()
+
+    def on_leave(self, e):
+        self.hover = False
+        self.draw()
+
+    def on_click(self, event):
+        self.variable.set(self.value)
+        if self.command:
+            self.command()
+
+    def update_state(self, *args):
+        self.draw()
+
+    def draw(self):
+        self.delete("all")
+        selected = (self.variable.get() == self.value)
+        if selected:
+            bg_color = self.select_color
+            fg_color = "white"
+        elif self.hover:
+            bg_color = CARD
+            fg_color = "white"
+        else:
+            bg_color = BG
+            fg_color = FG2
+        
+        create_round_rect(self, 2, 2, self.winfo_reqwidth()-2, self.winfo_reqheight()-2, r=16, fill=bg_color, outline=CARD)
+        self.create_text(20, self.winfo_reqheight()//2, text=self.text, anchor="w", fill=fg_color, font=("Segoe UI", 10, "bold" if selected else "normal"))
+
+class RoundedFrame(tk.Canvas):
+    def __init__(self, parent, bg_color=CARD, radius=16, fit_content=False, **kwargs):
+        super().__init__(parent, bg=BG, highlightthickness=0, **kwargs)
+        self.bg_color = bg_color
+        self.radius = radius
+        self.fit_content = fit_content
+        self.inner = tk.Frame(self, bg=bg_color)
+        self.window = self.create_window(radius//2, radius//2, window=self.inner, anchor="nw")
+        self.bind("<Configure>", self.on_resize)
+        if fit_content:
+            self.inner.bind("<Configure>", self.on_inner_resize)
+            
+    def on_inner_resize(self, event):
+        w = event.width + self.radius
+        h = event.height + self.radius
+        self.config(width=w, height=h)
+
+    def on_resize(self, event):
+        self.delete("bg")
+        w, h = event.width, event.height
+        create_round_rect(self, 2, 2, w-2, h-2, r=self.radius, fill=self.bg_color, outline=self.bg_color, tags="bg")
+        self.tag_lower("bg")
+        if not self.fit_content:
+            self.itemconfig(self.window, width=w - self.radius, height=h - self.radius)
 
 
 class MazeSolverApp(tk.Tk):
@@ -91,25 +171,16 @@ class MazeSolverApp(tk.Tk):
 
         self._section(p, "SELECT MAZE")
         for i, (name, _) in enumerate(SAMPLE_MAZES):
-            rb = tk.Radiobutton(p, text=f"  {name}", variable=self._sel_maze,
-                                value=i, bg=PANEL, fg=FG, selectcolor=ACCENT,
-                                activebackground=PANEL, activeforeground=ACCENT2,
-                                font=("Segoe UI", 10),
-                                command=lambda idx=i: self._load_maze(idx),
-                                indicatoron=True, cursor="hand2")
-            rb.pack(anchor="w", padx=16, pady=2)
+            rt = RoundedToggle(p, f"  {name}", self._sel_maze, i, ACCENT, command=lambda idx=i: self._load_maze(idx))
+            rt.pack(anchor="center", pady=3)
 
         tk.Frame(p, bg=WALL, height=1).pack(fill="x", padx=12, pady=10)
         self._section(p, "ALGORITHM")
 
         for algo in ["All", "BFS", "DFS", "IDS", "A*"]:
             clr = ALGO_COLORS.get(algo, ACCENT)
-            rb = tk.Radiobutton(p, text=f"  {algo}", variable=self._sel_algo,
-                                value=algo, bg=PANEL, fg=clr, selectcolor=clr,
-                                activebackground=PANEL, activeforeground=clr,
-                                font=("Segoe UI", 10, "bold"),
-                                indicatoron=True, cursor="hand2")
-            rb.pack(anchor="w", padx=16, pady=2)
+            rt = RoundedToggle(p, f"  {algo}", self._sel_algo, algo, clr)
+            rt.pack(anchor="center", pady=3)
 
         tk.Frame(p, bg=WALL, height=1).pack(fill="x", padx=12, pady=10)
 
@@ -220,7 +291,11 @@ class MazeSolverApp(tk.Tk):
                         relief="flat")
         style.map("Custom.Treeview", background=[("selected", ACCENT)])
 
-        self._tree = ttk.Treeview(t, columns=cols, show="headings",
+        # Table Rounded Frame
+        rf_tree = RoundedFrame(t, bg_color=CARD, radius=16)
+        rf_tree.pack(fill="both", expand=True, padx=10, pady=10)
+
+        self._tree = ttk.Treeview(rf_tree.inner, columns=cols, show="headings",
                                   style="Custom.Treeview", height=6)
         widths = [130, 100, 120, 150, 110, 100, 100]
         for col, w in zip(cols, widths):
@@ -232,14 +307,15 @@ class MazeSolverApp(tk.Tk):
         self._tree.tag_configure("ids", foreground=ALGO_COLORS["IDS"])
         self._tree.tag_configure("astar", foreground=ALGO_COLORS["A*"])
 
-        vsb = ttk.Scrollbar(t, orient="vertical", command=self._tree.yview)
+        vsb = ttk.Scrollbar(rf_tree.inner, orient="vertical", command=self._tree.yview)
         self._tree.configure(yscrollcommand=vsb.set)
         vsb.pack(side="right", fill="y")
-        self._tree.pack(fill="both", expand=True, padx=10, pady=10)
+        self._tree.pack(fill="both", expand=True)
 
         # Properties info box
-        info = tk.Frame(t, bg=CARD, bd=0)
-        info.pack(fill="x", padx=10, pady=(0, 10))
+        self._info_rf = RoundedFrame(t, bg_color=CARD, radius=16, fit_content=True)
+        self._info_rf.pack(fill="x", padx=10, pady=(0, 10))
+        info = self._info_rf.inner
 
         headers = ["Algorithm", "Time Complexity", "Space Complexity",
                    "Complete?", "Optimal?", "Strategy"]
@@ -263,10 +339,10 @@ class MazeSolverApp(tk.Tk):
 
     # ── TAB 3: Charts ─────────────────────────────
     def _build_chart_tab(self):
-        self._chart_frame = tk.Frame(self._tab_chart, bg=BG)
-        self._chart_frame.pack(fill="both", expand=True)
-        tk.Label(self._chart_frame, text="Run algorithms to see charts",
-                 bg=BG, fg=FG2, font=("Segoe UI", 13)).pack(expand=True)
+        self._chart_frame = RoundedFrame(self._tab_chart, bg_color=CARD, radius=16)
+        self._chart_frame.pack(fill="both", expand=True, padx=10, pady=10)
+        tk.Label(self._chart_frame.inner, text="Run algorithms to see charts",
+                 bg=CARD, fg=FG2, font=("Segoe UI", 13)).pack(expand=True)
 
     # ─────────────────────────────────────────────
     def _load_maze(self, idx):
@@ -300,13 +376,41 @@ class MazeSolverApp(tk.Tk):
         self.after(0, self._on_done)
 
     def _on_done(self):
-        self._animating = False
         self._run_btn.config(state="normal", text="▶  RUN")
-        view = self._view_algo.get()
-        self._draw_maze_grid(self._results, view)
-        self._update_table()
-        self._update_charts()
-        self._status_var.set("✔  Done — see Comparison and Charts tabs")
+        self._status_var.set("Animating search...")
+        
+        self._animate_step = 0
+        self._animate_max = 0
+        self._animate_data = []
+        
+        for algo in self._results:
+            path, explored, cost, nodes, elapsed, exp_order = self._results[algo]
+            self._animate_max = max(self._animate_max, len(exp_order))
+            self._animate_data.append((algo, exp_order, path))
+            
+        self._animating = True
+        self._animate_loop()
+
+    def _animate_loop(self):
+        if self._animate_step < self._animate_max:
+            view = self._view_algo.get()
+            current_results = {}
+            for algo, exp_order, path in self._animate_data:
+                limit = min(self._animate_step, len(exp_order))
+                current_explored = set(exp_order[:limit])
+                current_results[algo] = (None, current_explored, 0, 0, 0, [])
+            self._draw_maze_grid(current_results, view)
+            
+            step_size = max(1, self._animate_max // 100) # Adjust speed dynamically
+            self._animate_step += step_size
+            self.after(30, self._animate_loop)
+        else:
+            self._animating = False
+            view = self._view_algo.get()
+            self._draw_maze_grid(self._results, view)
+            self._update_table()
+            self._update_charts()
+            self._status_var.set("✔  Done — see Comparison and Charts tabs")
 
     # ── DRAW MAZE ─────────────────────────────────
     def _refresh_maze_view(self):
@@ -343,18 +447,22 @@ class MazeSolverApp(tk.Tk):
                       width=total_w, height=total_h)
 
         def draw_panel(ox, oy, algo_name, path, explored):
+            # Panel Background
+            create_round_rect(canvas, ox, oy, ox+panel_w-4, oy+panel_h-4, r=16, fill=PANEL, outline=PANEL)
+            
             # Header
             color = ALGO_COLORS.get(algo_name, ACCENT)
-            canvas.create_rectangle(ox, oy, ox+panel_w-4, oy+30,
-                                    fill=color, outline="")
-            canvas.create_text(ox + panel_w//2, oy+15,
+            create_round_rect(canvas, ox, oy, ox+panel_w-4, oy+36, r=16, fill=color, outline=color)
+            canvas.create_rectangle(ox, oy+16, ox+panel_w-4, oy+36, fill=color, outline="")
+            
+            canvas.create_text(ox + panel_w//2, oy+18,
                                text=algo_name, fill="white",
                                font=("Segoe UI", 11, "bold"))
 
-            gy = oy + 34
+            gy = oy + 42
             for r in range(maze.rows):
                 for c in range(maze.cols):
-                    x0, y0 = ox + c*cs, gy + r*cs
+                    x0, y0 = ox + c*cs + 8, gy + r*cs
                     x1, y1 = x0+cs-1, y0+cs-1
                     if maze.grid[r][c] == 1:
                         fill = WALL
@@ -373,7 +481,7 @@ class MazeSolverApp(tk.Tk):
                         fill = GOAL_CLR
 
                     canvas.create_rectangle(x0, y0, x1, y1,
-                                            fill=fill, outline=BG, width=1)
+                                            fill=fill, outline="#2a2e45", width=1)
                     if (r, c) == maze.start:
                         canvas.create_text((x0+x1)//2, (y0+y1)//2,
                                            text="S", fill="white",
@@ -386,19 +494,26 @@ class MazeSolverApp(tk.Tk):
         if not algos_to_show:
             # Just draw the plain maze
             ox, oy = 10, 10
-            canvas.create_text(ox + maze.cols*cs//2, oy+15,
-                               text="Maze Layout", fill=FG,
+            panel_w = maze.cols*cs + 20
+            panel_h = maze.rows*cs + 50
+            
+            create_round_rect(canvas, ox, oy, ox+panel_w, oy+panel_h, r=16, fill=PANEL, outline=PANEL)
+            create_round_rect(canvas, ox, oy, ox+panel_w, oy+36, r=16, fill=ACCENT, outline=ACCENT)
+            canvas.create_rectangle(ox, oy+16, ox+panel_w, oy+36, fill=ACCENT, outline="")
+            
+            canvas.create_text(ox + panel_w//2, oy+18,
+                               text="Maze Layout", fill="white",
                                font=("Segoe UI", 11, "bold"))
-            gy = oy + 34
+            gy = oy + 42
             for r in range(maze.rows):
                 for c in range(maze.cols):
-                    x0, y0 = ox + c*cs, gy + r*cs
+                    x0, y0 = ox + c*cs + 10, gy + r*cs
                     x1, y1 = x0+cs-1, y0+cs-1
                     fill = WALL if maze.grid[r][c] == 1 else OPEN
                     if (r, c) == maze.start: fill = START_CLR
                     if (r, c) == maze.goal:  fill = GOAL_CLR
                     canvas.create_rectangle(x0, y0, x1, y1, fill=fill,
-                                            outline=BG, width=1)
+                                            outline="#2a2e45", width=1)
                     if (r, c) == maze.start:
                         canvas.create_text((x0+x1)//2,(y0+y1)//2,
                                            text="S",fill="white",
@@ -417,7 +532,7 @@ class MazeSolverApp(tk.Tk):
                 oy = 10 + row_i * panel_h
                 path_set, explored_set = set(), set()
                 if algo_name in results:
-                    path, explored, cost, nodes, elapsed = results[algo_name]
+                    path, explored, cost, nodes, elapsed, _ = results[algo_name]
                     if path:    path_set    = set(path)
                     if explored: explored_set = set(explored)
                 draw_panel(ox, oy, algo_name, path_set, explored_set)
@@ -435,7 +550,7 @@ class MazeSolverApp(tk.Tk):
         for algo in ["BFS", "DFS", "IDS", "A*"]:
             if algo not in self._results:
                 continue
-            path, _, cost, nodes, elapsed = self._results[algo]
+            path, _, cost, nodes, elapsed, _ = self._results[algo]
             found = "✔ Yes" if path else "✘ No"
             cost_s = str(cost) if path else "N/A"
             ms = f"{elapsed*1000:.3f}"
@@ -446,13 +561,13 @@ class MazeSolverApp(tk.Tk):
 
     # ── CHARTS ────────────────────────────────────
     def _clear_charts(self):
-        for w in self._chart_frame.winfo_children():
+        for w in self._chart_frame.inner.winfo_children():
             w.destroy()
-        tk.Label(self._chart_frame, text="Run algorithms to see charts",
-                 bg=BG, fg=FG2, font=("Segoe UI", 13)).pack(expand=True)
+        tk.Label(self._chart_frame.inner, text="Run algorithms to see charts",
+                 bg=CARD, fg=FG2, font=("Segoe UI", 13)).pack(expand=True)
 
     def _update_charts(self):
-        for w in self._chart_frame.winfo_children():
+        for w in self._chart_frame.inner.winfo_children():
             w.destroy()
 
         try:
@@ -461,9 +576,9 @@ class MazeSolverApp(tk.Tk):
             from matplotlib.figure import Figure
             from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
         except ImportError:
-            tk.Label(self._chart_frame,
+            tk.Label(self._chart_frame.inner,
                      text="Install matplotlib for charts:\n  pip3 install matplotlib",
-                     bg=BG, fg=WARN, font=("Segoe UI", 12)).pack(expand=True)
+                     bg=CARD, fg=WARN, font=("Segoe UI", 12)).pack(expand=True)
             return
 
         algos  = [a for a in ["BFS","DFS","IDS","A*"] if a in self._results]
@@ -473,12 +588,13 @@ class MazeSolverApp(tk.Tk):
         colors = [ALGO_COLORS[a] for a in algos]
 
         for a in algos:
-            path, _, cost, n, elapsed = self._results[a]
+            path, _, cost, n, elapsed, _ = self._results[a]
             nodes.append(n)
             costs.append(cost if cost != float("inf") else 0)
             times.append(elapsed * 1000)
 
-        fig = Figure(figsize=(11, 4), facecolor=BG, tight_layout=True)
+        fig = Figure(figsize=(11, 4.5), facecolor=BG)
+        fig.subplots_adjust(bottom=0.2)
         axes = [fig.add_subplot(1, 3, i+1) for i in range(3)]
 
         data_sets = [
@@ -504,7 +620,7 @@ class MazeSolverApp(tk.Tk):
                         f"{val:.1f}" if isinstance(val, float) else str(val),
                         ha="center", va="bottom", color=FG, fontsize=9)
 
-        canvas_widget = FigureCanvasTkAgg(fig, master=self._chart_frame)
+        canvas_widget = FigureCanvasTkAgg(fig, master=self._chart_frame.inner)
         canvas_widget.draw()
         canvas_widget.get_tk_widget().pack(fill="both", expand=True,
                                            padx=10, pady=10)

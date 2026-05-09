@@ -57,18 +57,21 @@ def bfs(maze):
         return [maze.start], set(), 0, 0, 0.0
     frontier = deque([start_node])
     explored = set()
+    exploration_order = []
     nodes_explored = 0
     while frontier:
         node = frontier.popleft()
         nodes_explored += 1
         if maze.is_goal(node.state):
             path, actions = reconstruct_path(node)
-            return path, explored, len(path) - 1, nodes_explored, time.perf_counter() - t0
-        explored.add(node.state)
+            return path, explored, len(path) - 1, nodes_explored, time.perf_counter() - t0, exploration_order
+        if node.state not in explored:
+            explored.add(node.state)
+            exploration_order.append(node.state)
         for neighbor_state, action in maze.get_neighbors(node.state):
             if neighbor_state not in explored and not any(n.state == neighbor_state for n in frontier):
                 frontier.append(Node(neighbor_state, node, action, node.depth + 1))
-    return None, explored, float("inf"), nodes_explored, time.perf_counter() - t0
+    return None, explored, float("inf"), nodes_explored, time.perf_counter() - t0, exploration_order
 
 
 def dfs(maze):
@@ -78,20 +81,22 @@ def dfs(maze):
         return [maze.start], set(), 0, 0, 0.0
     frontier = [start_node]
     explored = set()
+    exploration_order = []
     nodes_explored = 0
     while frontier:
         node = frontier.pop()
         nodes_explored += 1
         if maze.is_goal(node.state):
             path, actions = reconstruct_path(node)
-            return path, explored, len(path) - 1, nodes_explored, time.perf_counter() - t0
+            return path, explored, len(path) - 1, nodes_explored, time.perf_counter() - t0, exploration_order
         if node.state in explored:
             continue
         explored.add(node.state)
+        exploration_order.append(node.state)
         for neighbor_state, action in maze.get_neighbors(node.state):
             if neighbor_state not in explored:
                 frontier.append(Node(neighbor_state, node, action, node.depth + 1))
-    return None, explored, float("inf"), nodes_explored, time.perf_counter() - t0
+    return None, explored, float("inf"), nodes_explored, time.perf_counter() - t0, exploration_order
 
 
 def dls(maze, limit):
@@ -101,34 +106,38 @@ def dls(maze, limit):
         return [maze.start], set(), 0, 0, 0.0
     frontier = [start_node]
     explored = set()
+    exploration_order = []
     nodes_explored = 0
     while frontier:
         node = frontier.pop()
         nodes_explored += 1
         if maze.is_goal(node.state):
             path, actions = reconstruct_path(node)
-            return path, explored, len(path) - 1, nodes_explored, time.perf_counter() - t0
+            return path, explored, len(path) - 1, nodes_explored, time.perf_counter() - t0, exploration_order
         if node.state in explored:
             continue
         explored.add(node.state)
+        exploration_order.append(node.state)
         if node.depth < limit:
             for neighbor_state, action in maze.get_neighbors(node.state):
                 if neighbor_state not in explored:
                     frontier.append(Node(neighbor_state, node, action, node.depth + 1))
-    return None, explored, float("inf"), nodes_explored, time.perf_counter() - t0
+    return None, explored, float("inf"), nodes_explored, time.perf_counter() - t0, exploration_order
 
 
 def ids(maze, max_depth=50):
     t0 = time.perf_counter()
     nodes_explored_total = 0
     all_explored = set()
+    all_exploration_order = []
     for depth in range(max_depth + 1):
-        path, explored, cost, nodes_explored, _ = dls(maze, depth)
+        path, explored, cost, nodes_explored, _, exp_order = dls(maze, depth)
         nodes_explored_total += nodes_explored
         all_explored |= explored
+        all_exploration_order.extend(exp_order)
         if path is not None:
-            return path, all_explored, cost, nodes_explored_total, time.perf_counter() - t0
-    return None, all_explored, float("inf"), nodes_explored_total, time.perf_counter() - t0
+            return path, all_explored, cost, nodes_explored_total, time.perf_counter() - t0, all_exploration_order
+    return None, all_explored, float("inf"), nodes_explored_total, time.perf_counter() - t0, all_exploration_order
 
 
 def manhattan_distance(state, goal):
@@ -143,6 +152,7 @@ def astar(maze):
     frontier = []
     heapq.heappush(frontier, (0, id(start_node), start_node))
     explored = set()
+    exploration_order = []
     nodes_explored = 0
     g_cost = {maze.start: 0}
     while frontier:
@@ -150,10 +160,11 @@ def astar(maze):
         nodes_explored += 1
         if maze.is_goal(node.state):
             path, actions = reconstruct_path(node)
-            return path, explored, node.cost, nodes_explored, time.perf_counter() - t0
+            return path, explored, node.cost, nodes_explored, time.perf_counter() - t0, exploration_order
         if node.state in explored:
             continue
         explored.add(node.state)
+        exploration_order.append(node.state)
         for neighbor_state, action in maze.get_neighbors(node.state):
             new_g = g_cost[node.state] + 1
             if neighbor_state not in g_cost or new_g < g_cost[neighbor_state]:
@@ -162,7 +173,7 @@ def astar(maze):
                 f = new_g + h
                 child = Node(neighbor_state, node, action, node.depth + 1, new_g)
                 heapq.heappush(frontier, (f, id(neighbor_state), child))
-    return None, explored, float("inf"), nodes_explored, time.perf_counter() - t0
+    return None, explored, float("inf"), nodes_explored, time.perf_counter() - t0, exploration_order
 
 
 def run_all(maze):
