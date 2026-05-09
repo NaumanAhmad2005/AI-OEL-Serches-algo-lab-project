@@ -478,7 +478,8 @@ class MazeSolverApp(tk.Tk):
             self._animate_data.append((algo, exp_order, path))
             
         self._animating = True
-        self._draw_maze_grid({}, self._view_algo.get())
+        empty_results = {algo: (None, set(), 0, 0, 0, []) for algo in self._results}
+        self._draw_maze_grid(empty_results, self._view_algo.get())
         self._animate_loop()
 
     def _animate_loop(self):
