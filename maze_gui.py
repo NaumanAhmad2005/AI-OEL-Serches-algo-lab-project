@@ -243,17 +243,17 @@ class MazeSolverApp(tk.Tk):
         self._section(p, "SELECT MAZE")
         for i, (name, _) in enumerate(SAMPLE_MAZES):
             rt = RoundedToggle(p, f"  {name}", self._sel_maze, i, ACCENT, command=lambda idx=i: self._load_maze(idx))
-            rt.pack(anchor="center", pady=3)
+            rt.pack(anchor="center", pady=2)
 
-        tk.Frame(p, bg=CARD, height=1).pack(fill="x", padx=12, pady=10)
+        tk.Frame(p, bg=CARD, height=1).pack(fill="x", padx=12, pady=6)
         self._section(p, "ALGORITHM")
 
         for algo in ["All", "BFS", "DFS", "IDS", "A*"]:
             clr = ALGO_COLORS.get(algo, ACCENT)
             rt = RoundedToggle(p, f"  {algo}", self._sel_algo, algo, clr)
-            rt.pack(anchor="center", pady=3)
+            rt.pack(anchor="center", pady=2)
 
-        tk.Frame(p, bg=CARD, height=1).pack(fill="x", padx=12, pady=10)
+        tk.Frame(p, bg=CARD, height=1).pack(fill="x", padx=12, pady=6)
 
         self._run_btn = RoundedButton(p, text="▶  RUN", bg_color=ACCENT, command=self._run)
         self._run_btn.pack(anchor="center", pady=4)
@@ -268,16 +268,16 @@ class MazeSolverApp(tk.Tk):
             tk.Label(row, text=f"  {label}", bg=PANEL, fg=FG2,
                      font=("Segoe UI", 9)).pack(side="left")
 
-        tk.Frame(p, bg=CARD, height=1).pack(fill="x", padx=12, pady=10)
+        tk.Frame(p, bg=CARD, height=1).pack(fill="x", padx=12, pady=6)
         self._section(p, "CONTRIBUTORS")
         contribs = ["Nauman Ahmad", "M.Tahir", "Abshar Hussain", "Daniyal Haider"]
         for c in contribs:
-            tk.Label(p, text=f"•  {c}", bg=PANEL, fg=FG2,
-                     font=("Segoe UI", 9)).pack(anchor="w", padx=20, pady=1)
+            tk.Label(p, text=f"•  {c}", bg=PANEL, fg=ACCENT2,
+                     font=("Segoe UI", 9, "bold")).pack(anchor="w", padx=20, pady=0)
 
     def _section(self, parent, text):
         tk.Label(parent, text=text, bg=PANEL, fg=FG2,
-                 font=("Segoe UI", 8, "bold")).pack(anchor="w", padx=16, pady=(12, 2))
+                 font=("Segoe UI", 8, "bold")).pack(anchor="w", padx=16, pady=(8, 2))
 
     # ── RIGHT PANEL ───────────────────────────────
     def _build_right(self):
@@ -326,21 +326,7 @@ class MazeSolverApp(tk.Tk):
     # ── TAB 1: Maze view ─────────────────────────
     def _build_maze_tab(self):
         t = self._tab_maze
-
-        # Algo selector row at top
-        top = tk.Frame(t, bg=BG)
-        top.pack(fill="x", padx=10, pady=(8,0))
-        tk.Label(top, text="Show:", bg=BG, fg=FG2,
-                 font=("Segoe UI", 10)).pack(side="left")
         self._view_algo = tk.StringVar(value="All")
-        for a in ["All", "BFS", "DFS", "IDS", "A*"]:
-            clr = ALGO_COLORS.get(a, ACCENT)
-            rb = tk.Radiobutton(top, text=a, variable=self._view_algo, value=a,
-                                bg=BG, fg=clr, selectcolor=clr,
-                                activebackground=BG, font=("Segoe UI", 10, "bold"),
-                                indicatoron=True, cursor="hand2",
-                                command=self._refresh_maze_view)
-            rb.pack(side="left", padx=8)
 
         # Status bar
         self._status_var = tk.StringVar(value="Select a maze and press ▶ RUN")
