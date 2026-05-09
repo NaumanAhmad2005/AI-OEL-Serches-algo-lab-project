@@ -236,8 +236,20 @@ class MazeSolverApp(tk.Tk):
         self._left_scrollbar = ttk.Scrollbar(self._left_container, orient="vertical", command=self._left_canvas.yview)
         self._left_canvas.configure(yscrollcommand=self._left_scrollbar.set)
         
-        self._left_scrollbar.pack(side="right", fill="y")
+        # self._left_scrollbar.pack(side="right", fill="y")
         self._left_canvas.pack(side="left", fill="both", expand=True)
+        
+        def _bind_scroll(e):
+            self.bind_all("<MouseWheel>", lambda e: self._left_canvas.yview_scroll(-1 * (e.delta // 120), "units"))
+            self.bind_all("<Button-4>", lambda e: self._left_canvas.yview_scroll(-1, "units"))
+            self.bind_all("<Button-5>", lambda e: self._left_canvas.yview_scroll(1, "units"))
+        def _unbind_scroll(e):
+            self.unbind_all("<MouseWheel>")
+            self.unbind_all("<Button-4>")
+            self.unbind_all("<Button-5>")
+            
+        self._left_canvas.bind("<Enter>", _bind_scroll)
+        self._left_canvas.bind("<Leave>", _unbind_scroll)
         
         self._left = tk.Frame(self._left_canvas, bg=PANEL)
         self._left_canvas.create_window((0, 0), window=self._left, anchor="nw")
@@ -368,63 +380,37 @@ class MazeSolverApp(tk.Tk):
     # ── TAB 2: Comparison table ───────────────────
     def _build_table_tab(self):
         t = self._tab_table
-        cols = ("Algorithm", "Path Found", "Path Length", "Nodes Explored",
-                "Time (ms)", "Complete", "Optimal")
+        
+        tk.Label(t, text="Real-Time Execution Results", bg=BG, fg=ACCENT2, font=("Segoe UI", 12, "bold")).pack(anchor="w", padx=14, pady=(10, 2))
+        
+        self._table_container = tk.Frame(t, bg=BG)
+        self._table_container.pack(fill="x", padx=10, pady=4)
+        
+        tk.Label(t, text="Algorithm Properties Reference", bg=BG, fg=ACCENT2, font=("Segoe UI", 12, "bold")).pack(anchor="w", padx=14, pady=(10, 2))
 
-        style = ttk.Style()
-        style.configure("Custom.Treeview", background=CARD, foreground=FG,
-                        fieldbackground=CARD, rowheight=34,
-                        font=("Segoe UI", 11))
-        style.configure("Custom.Treeview.Heading", background=ACCENT,
-                        foreground="white", font=("Segoe UI", 11, "bold"),
-                        relief="flat")
-        style.map("Custom.Treeview", background=[("selected", ACCENT)])
+        # Properties info box made of rounded rows
+        self._info_rf = tk.Frame(t, bg=BG)
+        self._info_rf.pack(fill="x", padx=10, pady=4)
 
-        # Table Rounded Frame
-        rf_tree = RoundedFrame(t, bg_color=CARD, radius=16)
-        rf_tree.pack(fill="both", expand=True, padx=10, pady=10)
-
-        self._tree = ttk.Treeview(rf_tree.inner, columns=cols, show="headings",
-                                  style="Custom.Treeview", height=6)
-        widths = [130, 100, 120, 150, 110, 100, 100]
-        for col, w in zip(cols, widths):
-            self._tree.heading(col, text=col)
-            self._tree.column(col, width=w, anchor="center")
-
-        self._tree.tag_configure("bfs", foreground=ALGO_COLORS["BFS"])
-        self._tree.tag_configure("dfs", foreground=ALGO_COLORS["DFS"])
-        self._tree.tag_configure("ids", foreground=ALGO_COLORS["IDS"])
-        self._tree.tag_configure("astar", foreground=ALGO_COLORS["A*"])
-
-        vsb = ttk.Scrollbar(rf_tree.inner, orient="vertical", command=self._tree.yview)
-        self._tree.configure(yscrollcommand=vsb.set)
-        vsb.pack(side="right", fill="y")
-        self._tree.pack(fill="both", expand=True)
-
-        # Properties info box
-        self._info_rf = RoundedFrame(t, bg_color=CARD, radius=16, fit_content=True)
-        self._info_rf.pack(fill="x", padx=10, pady=(0, 10))
-        info = self._info_rf.inner
-
-        headers = ["Algorithm", "Time Complexity", "Space Complexity",
-                   "Complete?", "Optimal?", "Strategy"]
+        headers = ["Algorithm", "Time Complexity", "Space Complexity", "Complete?", "Optimal?", "Strategy"]
         rows = [
             ("BFS",  "O(b^d)",     "O(b^d)",     "Yes (finite)", "Yes (unit cost)", "Level-by-level"),
             ("DFS",  "O(b^m)",     "O(bm)",       "No",           "No",              "Stack / LIFO"),
             ("IDS",  "O(b^d)",     "O(bd)",       "Yes",          "Yes (unit cost)", "Iterative depth"),
             ("A*",   "O(b^d)",     "O(b^d)",      "Yes",          "Yes (admissible h)","Best-first f=g+h"),
         ]
+        
+        h_rf = RoundedFrame(self._info_rf, bg_color=CARD, radius=12, fit_content=True)
+        h_rf.pack(fill="x", pady=2)
         for j, h in enumerate(headers):
-            tk.Label(info, text=h, bg=CARD, fg=ACCENT2,
-                     font=("Segoe UI", 9, "bold"),
-                     width=18, anchor="center").grid(row=0, column=j, padx=4, pady=4)
-        for i, row in enumerate(rows):
+            tk.Label(h_rf.inner, text=h, bg=CARD, fg="white", font=("Segoe UI", 10, "bold"), width=16).grid(row=0, column=j, pady=8, padx=6)
+
+        for row in rows:
+            r_rf = RoundedFrame(self._info_rf, bg_color=PANEL, radius=12, fit_content=True)
+            r_rf.pack(fill="x", pady=2)
             clr = ALGO_COLORS[row[0]]
             for j, val in enumerate(row):
-                tk.Label(info, text=val, bg=PANEL, fg=clr if j == 0 else FG,
-                         font=("Segoe UI", 9),
-                         width=18, anchor="center", relief="flat",
-                         pady=4).grid(row=i+1, column=j, padx=4, pady=2)
+                tk.Label(r_rf.inner, text=val, bg=PANEL, fg=clr if j == 0 else FG, font=("Segoe UI", 10, "bold" if j==0 else "normal"), width=16).grid(row=0, column=j, pady=8, padx=6)
 
     # ── TAB 3: Charts ─────────────────────────────
     def _build_chart_tab(self):
@@ -645,14 +631,22 @@ class MazeSolverApp(tk.Tk):
 
     # ── TABLE ─────────────────────────────────────
     def _clear_table(self):
-        for row in self._tree.get_children():
-            self._tree.delete(row)
+        for widget in getattr(self, "_table_container", tk.Frame()).winfo_children():
+            widget.destroy()
 
     def _update_table(self):
         self._clear_table()
+        
+        cols = ("Algorithm", "Path Found", "Path Length", "Nodes Explored", "Time (ms)", "Complete", "Optimal")
+        
+        header_rf = RoundedFrame(self._table_container, bg_color=CARD, radius=12, fit_content=True)
+        header_rf.pack(fill="x", pady=2)
+        for i, col in enumerate(cols):
+            tk.Label(header_rf.inner, text=col, bg=CARD, fg="white", font=("Segoe UI", 10, "bold"), width=15).grid(row=0, column=i, pady=8, padx=4)
+
         completeness = {"BFS": "Yes", "DFS": "No",  "IDS": "Yes", "A*": "Yes"}
         optimality   = {"BFS": "Yes", "DFS": "No",  "IDS": "Yes", "A*": "Yes"}
-        tags_map     = {"BFS": "bfs", "DFS": "dfs", "IDS": "ids", "A*": "astar"}
+        
         for algo in ["BFS", "DFS", "IDS", "A*"]:
             if algo not in self._results:
                 continue
@@ -660,10 +654,14 @@ class MazeSolverApp(tk.Tk):
             found = "✔ Yes" if path else "✘ No"
             cost_s = str(cost) if path else "N/A"
             ms = f"{elapsed*1000:.3f}"
-            self._tree.insert("", "end",
-                values=(algo, found, cost_s, nodes, ms,
-                        completeness[algo], optimality[algo]),
-                tags=(tags_map[algo],))
+            
+            row_rf = RoundedFrame(self._table_container, bg_color=PANEL, radius=12, fit_content=True)
+            row_rf.pack(fill="x", pady=2)
+            
+            vals = (algo, found, cost_s, nodes, ms, completeness[algo], optimality[algo])
+            for i, val in enumerate(vals):
+                fg = ALGO_COLORS.get(algo, FG) if i == 0 else FG
+                tk.Label(row_rf.inner, text=val, bg=PANEL, fg=fg, font=("Segoe UI", 10, "bold" if i==0 else "normal"), width=15).grid(row=0, column=i, pady=8, padx=4)
 
     # ── CHARTS ────────────────────────────────────
     def _clear_charts(self):
